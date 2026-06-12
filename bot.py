@@ -2,7 +2,7 @@ import os
 import logging
 import sqlite3
 from datetime import date, timedelta
-import google.generativeai as genai
+from groq import Groq
 from telegram import Update, LabeledPrice, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+
 FREE_DAILY_LIMIT = 3
 STARS_PRICE = 299
 REFERRAL_COMMISSION = 60
 DB_PATH = "creatorai.db"
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
+
 
 # ── States ────────────────────────────────────────────────────────────────────
 WAITING_INPUT = 1
@@ -118,10 +118,14 @@ def can_use(user_id):
 # ── Gemini AI ─────────────────────────────────────────────────────────────────
 async def ask_gemini(prompt):
     try:
-        response = model.generate_content(prompt)
-        return response.text
+        response = groq_client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2000,
+        )
+        return response.choices[0].message.content
     except Exception as e:
-        logger.error("Gemini error: %s", e)
+        logger.error("Groq error: %s", e)
         return "❌ Error al generar respuesta. Intenta de nuevo."
 
 # ── Menus ─────────────────────────────────────────────────────────────────────
