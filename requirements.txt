@@ -1,2 +1,2 @@
 python-telegram-bot[all]==21.6
-google-generativeai==0.7.2
+groq==0.9.0
