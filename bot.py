@@ -119,7 +119,7 @@ def can_use(user_id):
 async def ask_gemini(prompt):
     try:
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama3-70b-8192",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000,
         )
@@ -240,6 +240,22 @@ async def premium_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def buy_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    if query.data == "show_referido":
+        uid = query.from_user.id
+        register_user(uid)
+        user = get_user(uid)
+        bot_username = (await ctx.bot.get_me()).username
+        ref_link = f"https://t.me/{bot_username}?start=REF_{uid}"
+        await query.message.reply_text(
+            f"💰 *Tu link de referido:*\n\n"
+            f"`{ref_link}`\n\n"
+            f"Por cada amigo que compre Pro ganas *{REFERRAL_COMMISSION} Stars* automáticamente.\n\n"
+            f"👥 Amigos referidos: *{user['referral_count']}*\n"
+            f"⭐ Stars ganadas: *{user['stars_earned']}*",
+            parse_mode="Markdown"
+        )
+        return
+
     if query.data == "buy_premium":
         await ctx.bot.send_invoice(
             chat_id=query.from_user.id,
@@ -460,14 +476,27 @@ Sé práctico y motivador.""",
     left = FREE_DAILY_LIMIT - used
 
     footer = ""
+    bottom_keyboard = main_menu()
+
     if not is_premium(user):
         footer = f"\n\n━━━━━━━━━━━━━━━\n🎁 Usos gratuitos restantes hoy: *{max(left,0)}/{FREE_DAILY_LIMIT}*"
         if left <= 0:
             bot_username = (await ctx.bot.get_me()).username
             ref_link = f"https://t.me/{bot_username}?start=REF_{uid}"
-            footer += f"\n⭐ ¿Quieres ilimitado? /premium\n💰 Gana Stars gratis: `{ref_link}`"
+            footer += (
+                f"\n\n⛔ *Se acabaron tus usos de hoy!*\n\n"
+                f"*Opcion 1:* Compra Pro 299 Stars/mes\n"
+                f"*Opcion 2:* Invita amigos y gana Stars gratis:\n"
+                f"`{ref_link}`\n"
+                f"Por cada amigo que compre = *{REFERRAL_COMMISSION} Stars para ti*\n"
+                f"*Opcion 3:* Vuelve manana"
+            )
+            bottom_keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("Comprar Pro - 299 Stars", callback_data="buy_premium")],
+                [InlineKeyboardButton("Ver mi link de referido", callback_data="show_referido")],
+            ])
 
-    await msg.edit_text(response + footer, parse_mode="Markdown", reply_markup=main_menu())
+    await msg.edit_text(response + footer, parse_mode="Markdown", reply_markup=bottom_keyboard)
     ctx.user_data["service"] = None
 
 async def precheckout(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
